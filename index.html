@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Withings authorisation</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 20px;color:#202124}
+h1{font-size:1.7rem}.panel{background:#f4f6f8;border-radius:12px;padding:18px;margin:18px 0}
+code{overflow-wrap:anywhere;display:block;padding:12px;background:#fff;border:1px solid #ddd;border-radius:8px}
+button{padding:10px 16px;border:0;border-radius:8px;background:#202124;color:#fff;font-size:1rem;cursor:pointer}
+.muted{color:#555;font-size:.92rem}.error{color:#a11}
+</style>
+</head>
+<body>
+<h1>Withings authorisation</h1>
+<p>This page runs locally in your browser. It does not send your authorisation code anywhere.</p>
+<div id="status" class="panel">Checking the response from Withings…</div>
+<section id="result" hidden>
+<h2>Authorisation code</h2>
+<div class="panel"><code id="code"></code></div>
+<button id="copy" type="button">Copy authorisation code</button>
+<p class="muted">The code is short-lived and can only be exchanged once. Treat it like a password. Do not share screenshots or the code with anyone.</p>
+<h2>State</h2><div class="panel"><code id="state"></code></div>
+<p>Return to the private GitHub setup instructions to complete the one-time exchange.</p>
+</section>
+<script>
+(() => {
+const p=new URLSearchParams(location.search), code=p.get('code'), state=p.get('state'), err=p.get('error');
+const status=document.getElementById('status');
+if(err){status.innerHTML='<strong class="error">Authorisation was not granted.</strong><br>'+String(p.get('error_description')||err).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+else if(!code){status.textContent='No authorisation code was received. Start again from the Withings authorisation link.';}
+else{
+status.textContent='Withings returned an authorisation code.';
+document.getElementById('code').textContent=code;
+document.getElementById('state').textContent=state||'(no state returned)';
+document.getElementById('result').hidden=false;
+document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code);document.getElementById('copy').textContent='Copied';}catch(e){document.getElementById('copy').textContent='Copy unavailable — select the code above';}});
+}
+if(code||err)history.replaceState(null,'',location.pathname);
+})();
+</script>
+</body>
+</html>
