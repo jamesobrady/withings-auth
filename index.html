@@ -6,39 +6,76 @@
 <meta name="referrer" content="no-referrer">
 <title>Withings authorisation</title>
 <style>
-body{font:16px/1.5 system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 20px;color:#202124}
+body{font:16px/1.5 system-ui,sans-serif;max-width:680px;margin:36px auto;padding:0 20px;color:#202124}
 h1{font-size:1.7rem}.panel{background:#f4f6f8;border-radius:12px;padding:18px;margin:18px 0}
 code{overflow-wrap:anywhere;display:block;padding:12px;background:#fff;border:1px solid #ddd;border-radius:8px}
-button{padding:10px 16px;border:0;border-radius:8px;background:#202124;color:#fff;font-size:1rem;cursor:pointer}
-.muted{color:#555;font-size:.92rem}.error{color:#a11}
+button{padding:12px 18px;border:0;border-radius:8px;background:#202124;color:#fff;font-size:1rem;cursor:pointer}
+.muted{color:#555;font-size:.92rem}.error{color:#a11}.success{color:#176b35}
 </style>
 </head>
 <body>
-<h1>Withings authorisation</h1>
-<p>This page runs locally in your browser. It does not send your authorisation code anywhere.</p>
-<div id="status" class="panel">Checking the response from Withings…</div>
+<h1>Connect Withings</h1>
+<p>This page starts the secure Withings permission process. Your Withings password is entered only on Withings' own website. This page does not send your authorisation code to GitHub or any other server.</p>
+<div id="status" class="panel">Checking for a Withings response…</div>
+<div id="start">
+<p>When you're ready, select the button below. Sign in to Withings and approve access to your health measurements.</p>
+<button id="connect" type="button">Connect my Withings account</button>
+<p class="muted">Permission requested: <strong>user.metrics</strong> (weight and body measurements).</p>
+</div>
 <section id="result" hidden>
 <h2>Authorisation code</h2>
 <div class="panel"><code id="code"></code></div>
 <button id="copy" type="button">Copy authorisation code</button>
-<p class="muted">The code is short-lived and can only be exchanged once. Treat it like a password. Do not share screenshots or the code with anyone.</p>
-<h2>State</h2><div class="panel"><code id="state"></code></div>
-<p>Return to the private GitHub setup instructions to complete the one-time exchange.</p>
+<p class="muted">This code expires after 30 seconds and can only be exchanged once. Keep it private. Do not share a screenshot or paste it into chat.</p>
+<div id="stateStatus" class="panel"></div>
+<p>Next, use the private setup instructions to exchange the code securely.</p>
 </section>
 <script>
 (() => {
-const p=new URLSearchParams(location.search), code=p.get('code'), state=p.get('state'), err=p.get('error');
+const REDIRECT_URI='https://jamesobrady.github.io/withings-auth/';
+const CLIENT_ID='4e33c7db9fec1f6d869cbcc80ff240ab3f69b07e7c8c51a59c0539ea433eec7d';
 const status=document.getElementById('status');
-if(err){status.innerHTML='<strong class="error">Authorisation was not granted.</strong><br>'+String(p.get('error_description')||err).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
-else if(!code){status.textContent='No authorisation code was received. Start again from the Withings authorisation link.';}
-else{
-status.textContent='Withings returned an authorisation code.';
-document.getElementById('code').textContent=code;
-document.getElementById('state').textContent=state||'(no state returned)';
-document.getElementById('result').hidden=false;
-document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code);document.getElementById('copy').textContent='Copied';}catch(e){document.getElementById('copy').textContent='Copy unavailable — select the code above';}});
+const start=document.getElementById('start');
+const result=document.getElementById('result');
+const p=new URLSearchParams(location.search);
+const code=p.get('code');
+const returnedState=p.get('state');
+const err=p.get('error');
+if(err){
+  status.innerHTML='<strong class="error">Withings authorisation was not granted.</strong><br>'+String(p.get('error_description')||err).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}else if(code){
+  const expected=sessionStorage.getItem('withings_oauth_state');
+  start.hidden=true;
+  result.hidden=false;
+  document.getElementById('code').textContent=code;
+  const valid=!!expected && !!returnedState && expected===returnedState;
+  const stateStatus=document.getElementById('stateStatus');
+  stateStatus.textContent=valid?'Security check passed: the returned state matches this browser session.':'Security check failed: state did not match. Do not use this code; start again from this page in the same browser.';
+  stateStatus.className='panel '+(valid?'success':'error');
+  status.textContent=valid?'Withings returned an authorisation code.':'A response was received, but its security check failed.';
+  document.getElementById('copy').disabled=!valid;
+  document.getElementById('copy').addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(code);document.getElementById('copy').textContent='Copied';}
+    catch(e){document.getElementById('copy').textContent='Select and copy the code above';}
+  });
+  sessionStorage.removeItem('withings_oauth_state');
+  history.replaceState(null,'',location.pathname);
+}else{
+  status.textContent='Ready to connect. No authorisation response has been received yet.';
 }
-if(code||err)history.replaceState(null,'',location.pathname);
+document.getElementById('connect').addEventListener('click',()=>{
+  const bytes=new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const state=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  sessionStorage.setItem('withings_oauth_state',state);
+  const url=new URL('https://account.withings.com/oauth2_user/authorize2');
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('client_id',CLIENT_ID);
+  url.searchParams.set('scope','user.metrics');
+  url.searchParams.set('redirect_uri',REDIRECT_URI);
+  url.searchParams.set('state',state);
+  location.assign(url.toString());
+});
 })();
 </script>
 </body>
